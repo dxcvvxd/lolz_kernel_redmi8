@@ -1,4 +1,4 @@
-name: LOLZ Kernel Build
+name: Kernel Build (sdm439 4.19 + KSU)
 
 on:
   workflow_dispatch:
@@ -6,16 +6,18 @@ on:
       include_ksu:
         description: "Include KernelSU (static hooks)"
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout kernel source
+      - name: Checkout kernel source (Jprimero15 sdm439 4.19, ksu branch)
         uses: actions/checkout@v4
         with:
+          repository: Jprimero15/android_kernel_xiaomi_sdm439-4.19
+          ref: ksu
           fetch-depth: 1
 
       - name: Install dependencies
@@ -40,32 +42,23 @@ jobs:
         if: ${{ inputs.include_ksu }}
         run: |
           rm -rf drivers/KernelSU
-          rm -rf drivers/KernelSU drivers/kernelsu
           git clone --depth=1 https://github.com/Jprimero15/KernelSU drivers/KernelSU
           test -d drivers/KernelSU/kernel || { echo "::error::drivers/KernelSU/kernel missing - fork layout mismatch"; exit 1; }
-
-      - name: Stub out kernelsu dir (plain builds)
-        if: ${{ !inputs.include_ksu }}
-        run: |
-          rm -rf drivers/kernelsu
-          mkdir -p drivers/kernelsu
-          printf 'config KSU\n\tbool "KernelSU"\n\tdefault n\n' > drivers/kernelsu/Kconfig
-          printf 'obj-$(CONFIG_KSU) :=\n' > drivers/kernelsu/Makefile
+          ls drivers/KernelSU/kernel | head
 
       - name: Configure kernel (pine)
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
           MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
-          $MAKE KBUILD_DEFCONFIG=vendor/mi439-stock_defconfig defconfig
-          CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config arch/arm64/configs/vendor/feature/clang.config"
+          $MAKE KBUILD_DEFCONFIG=vendor/msm8937_defconfig defconfig
+          CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config"
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
             CONFIGS="$CONFIGS arch/arm64/configs/vendor/feature/ksu_static_hooks.config"
           fi
           printf 'CONFIG_KSU=%s\n' "${{ inputs.include_ksu && 'y' || 'n' }}" >> /tmp/extra.config
-          printf 'CONFIG_SCHED_WALT=y\n' >> /tmp/extra.config
           scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS /tmp/extra.config
           $MAKE olddefconfig
-          grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_CC_IS_CLANG" out/.config || true
+          grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG" out/.config || true
 
       - name: Build Image + dtbs
         run: |
@@ -95,7 +88,7 @@ jobs:
           rm -rf /tmp/AnyKernel3/.git /tmp/AnyKernel3/.github
           cp Image.gz-dtb /tmp/AnyKernel3/Image.gz-dtb
           sed -i \
-            -e 's/^kernel.string=.*/kernel.string=LOLZ Kernel v29 (KSU:${{ inputs.include_ksu }}) for pine/' \
+            -e 's/^kernel.string=.*/kernel.string=sdm439 4.19 KSU:${{ inputs.include_ksu }} for pine/' \
             -e 's/^is_slot_device=.*/is_slot_device=0;/' \
             -e 's|^# block=/dev/block/mmcblk0p21;|block=/dev/block/bootdevice/by-name/boot;|' \
             /tmp/AnyKernel3/anykernel.sh
@@ -103,12 +96,12 @@ jobs:
             sed -i '/^## AnyKernel setup/,/^##/s/^is_slot_device=/block=\/dev\/block\/bootdevice\/by-name\/boot;\nis_slot_device=/' /tmp/AnyKernel3/anykernel.sh
           tail -5 /tmp/AnyKernel3/anykernel.sh
           cd /tmp/AnyKernel3
-          zip -r9 "$GITHUB_WORKSPACE/lolz-kernel-v29-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-$(date +%Y%m%d).zip" .
+          zip -r9 "$GITHUB_WORKSPACE/sdm439-kernel-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-$(date +%Y%m%d).zip" .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lolz-v29-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ github.run_id }}
+          name: sdm439-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ github.run_id }}
           path: |
-            lolz-kernel-*.zip
+            sdm439-kernel-*.zip
             dtbo.img
