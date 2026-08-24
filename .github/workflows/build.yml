@@ -40,8 +40,17 @@ jobs:
         if: ${{ inputs.include_ksu }}
         run: |
           rm -rf drivers/KernelSU
+          rm -rf drivers/KernelSU drivers/kernelsu
           git clone --depth=1 https://github.com/Jprimero15/KernelSU drivers/KernelSU
           test -d drivers/KernelSU/kernel || { echo "::error::drivers/KernelSU/kernel missing - fork layout mismatch"; exit 1; }
+
+      - name: Stub out kernelsu dir (plain builds)
+        if: ${{ !inputs.include_ksu }}
+        run: |
+          rm -rf drivers/kernelsu
+          mkdir -p drivers/kernelsu
+          printf 'config KSU\n\tbool "KernelSU"\n\tdefault n\n' > drivers/kernelsu/Kconfig
+          printf 'obj-$(CONFIG_KSU) :=\n' > drivers/kernelsu/Makefile
 
       - name: Configure kernel (pine)
         run: |
