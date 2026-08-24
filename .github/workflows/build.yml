@@ -55,7 +55,7 @@ jobs:
       - name: Configure kernel (pine)
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
-          make O=out ARCH=arm64 mi439-stock_defconfig
+          make O=out ARCH=arm64 KBUILD_DEFCONFIG=vendor/mi439-stock_defconfig defconfig
           CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config arch/arm64/configs/vendor/feature/clang.config"
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
             CONFIGS="$CONFIGS arch/arm64/configs/vendor/feature/ksu_static_hooks.config"
