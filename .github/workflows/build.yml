@@ -55,33 +55,31 @@ jobs:
       - name: Configure kernel (pine)
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
-          make O=out ARCH=arm64 KBUILD_DEFCONFIG=vendor/mi439-stock_defconfig defconfig
+          MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+          $MAKE KBUILD_DEFCONFIG=vendor/mi439-stock_defconfig defconfig
           CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config arch/arm64/configs/vendor/feature/clang.config"
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
             CONFIGS="$CONFIGS arch/arm64/configs/vendor/feature/ksu_static_hooks.config"
           fi
           printf 'CONFIG_KSU=%s\n' "${{ inputs.include_ksu && 'y' || 'n' }}" >> /tmp/extra.config
           scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS /tmp/extra.config
-          make O=out ARCH=arm64 olddefconfig
-          grep -E "^CONFIG_KSU|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG" out/.config || true
+          $MAKE olddefconfig
+          grep -E "^CONFIG_KSU|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_CC_IS_CLANG" out/.config || true
 
-      - name: Build Image.gz-dtb
+      - name: Build Image + dtbs
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
-          make O=out CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc) Image.gz-dtb
-          ls -la out/arch/arm64/boot/Image.gz-dtb
+          MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc)"
+          $MAKE Image
+          $MAKE arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb \
+                arch/arm64/boot/dts/xiaomi-sdm439/sdm439-qrd-overlay-pine.dtbo
+          ls -la out/arch/arm64/boot/Image out/arch/arm64/boot/dts/xiaomi-sdm439/*.dtb
 
-      - name: Build pine dtbo
+      - name: Assemble Image.gz-dtb + dtbo.img
         run: |
-          export PATH="$HOME/neutron/bin:$PATH"
-          make O=out CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc) \
-            arch/arm64/boot/dts/xiaomi-sdm439/sdm439-qrd-overlay-pine.dtbo
-          find out/arch/arm64/boot/dts/xiaomi-sdm439 -name "*.dtbo"
-
-      - name: Build dtbo.img (pine)
-        run: |
+          gzip -9 -c out/arch/arm64/boot/Image > Image.gz-dtb
+          cat out/arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb >> Image.gz-dtb
+          ls -la Image.gz-dtb
           git clone --depth=1 https://android.googlesource.com/platform/system/libufdt /tmp/libufdt
           make -j$(nproc) -C /tmp/libufdt/utils/src
           MKDTIMG=/tmp/libufdt/utils/src/mkdtimg
@@ -94,7 +92,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 /tmp/AnyKernel3
           rm -rf /tmp/AnyKernel3/.git /tmp/AnyKernel3/.github
-          cp out/arch/arm64/boot/Image.gz-dtb /tmp/AnyKernel3/Image.gz-dtb
+          cp Image.gz-dtb /tmp/AnyKernel3/Image.gz-dtb
           sed -i \
             -e 's/^kernel.string=.*/kernel.string=LOLZ Kernel v29 (KSU:${{ inputs.include_ksu }}) for pine/' \
             -e 's/^is_slot_device=.*/is_slot_device=0;/' \
