@@ -66,30 +66,32 @@ jobs:
           $MAKE olddefconfig
           grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG|^CONFIG_CORESIGHT" out/.config || true
 
-      - name: Build Image + pine dtb
+      - name: Build Image
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
-          MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc)"
-          $MAKE Image
-          $MAKE sdm439-pine.dtb
-          ls -la out/arch/arm64/boot/Image out/arch/arm64/boot/dts/xiaomi-sdm439/*.dtb
+          make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc) Image
+          ls -la out/arch/arm64/boot/Image
 
-      - name: Compile pine dtbo (no kbuild rule in 4.19)
+      - name: Compile pine dtb + dtbo (no kbuild rules in 4.19)
         run: |
           DTC=out/scripts/dtc/dtc
           test -x "$DTC"
-          SRC=arch/arm64/boot/dts/xiaomi-sdm439/sdm439-qrd-overlay-pine.dts
+          X=arch/arm64/boot/dts/xiaomi-sdm439
           cpp -nostdinc -undef -D__DTS__ \
-            -I arch/arm64/boot/dts/xiaomi-sdm439 \
-            -I arch/arm64/boot/dts/xiaomi-sdm439/base \
-            -I include -x assembler-with-cpp "$SRC" > /tmp/pine-overlay.dts.tmp
+            -I $X -I $X/base -I include \
+            -x assembler-with-cpp $X/sdm439-pine.dts > /tmp/pine.dts.tmp
+          "$DTC" -O dtb -o sdm439-pine.dtb /tmp/pine.dts.tmp
+          cpp -nostdinc -undef -D__DTS__ \
+            -I $X -I $X/base -I include \
+            -x assembler-with-cpp $X/sdm439-qrd-overlay-pine.dts > /tmp/pine-overlay.dts.tmp
           "$DTC" -@ -O dtb -o sdm439-qrd-overlay-pine.dtbo /tmp/pine-overlay.dts.tmp
-          file sdm439-qrd-overlay-pine.dtbo
+          file sdm439-pine.dtb sdm439-qrd-overlay-pine.dtbo
 
       - name: Assemble Image.gz-dtb + dtbo.img
         run: |
           gzip -9 -c out/arch/arm64/boot/Image > Image.gz-dtb
-          cat out/arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb >> Image.gz-dtb
+          cat sdm439-pine.dtb >> Image.gz-dtb
           ls -la Image.gz-dtb
           git clone --depth=1 https://android.googlesource.com/platform/system/libufdt /tmp/libufdt
           make -j$(nproc) -C /tmp/libufdt/utils/src
