@@ -17,12 +17,13 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout kernel source (Jprimero15 sdm439 4.19)
+      - name: Checkout kernel source (fork with KernelSU-Next submodule)
         uses: actions/checkout@v4
         with:
-          repository: Jprimero15/android_kernel_xiaomi_sdm439-4.19
+          repository: dxcvvxd/android_kernel_xiaomi_sdm439-4.19
           ref: ${{ inputs.source_ref }}
           fetch-depth: 1
+          submodules: ${{ inputs.include_ksu }}
 
       - name: Install dependencies
         run: |
@@ -42,20 +43,19 @@ jobs:
           tar --zstd -xf clang.tar.zst -C "$HOME/neutron"
           echo "$HOME/neutron/bin" >> "$GITHUB_PATH"
 
-      - name: Clone or stub KernelSU Next
+      - name: Verify or stub KernelSU Next
         run: |
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
-            rm -rf KernelSU-Next
-            git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
-            test -f KernelSU-Next/kernel/Kconfig || { echo "::error::KernelSU-Next/kernel/Kconfig missing"; exit 1; }
-            # tree wiring: drivers/kernelsu -> ../KernelSU/kernel ; retarget to Next
-            rm -f drivers/kernelsu
-            ln -s ../KernelSU-Next/kernel drivers/kernelsu
+            # submodule pinned in fork commit e1e9473f0 (dev @ 8ab6aa0); symlink drivers/kernelsu -> ../KernelSU-Next/kernel
+            test -f KernelSU-Next/kernel/Kconfig || { echo "::error::KernelSU-Next submodule missing"; exit 1; }
+            readlink drivers/kernelsu
           else
-            # drivers/kernelsu -> ../KernelSU/kernel (tree root); stub it for plain builds
+            rm -rf KernelSU-Next KernelSU
             mkdir -p KernelSU/kernel
             printf 'config KSU\n\tbool "KernelSU"\n\tdefault n\n' > KernelSU/kernel/Kconfig
             printf 'obj-$(CONFIG_KSU) += \n' > KernelSU/kernel/Makefile
+            rm -f drivers/kernelsu
+            ln -s ../KernelSU/kernel drivers/kernelsu
           fi
 
       - name: Configure kernel (pine)
