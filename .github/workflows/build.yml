@@ -61,9 +61,10 @@ jobs:
             CONFIGS="$CONFIGS arch/arm64/configs/vendor/feature/ksu_static_hooks.config"
           fi
           printf 'CONFIG_KSU=%s\n' "${{ inputs.include_ksu && 'y' || 'n' }}" >> /tmp/extra.config
+          printf 'CONFIG_CORESIGHT=n\n' >> /tmp/extra.config
           scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS /tmp/extra.config
           $MAKE olddefconfig
-          grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG" out/.config || true
+          grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG|^CONFIG_CORESIGHT" out/.config || true
 
       - name: Build Image + dtbs
         run: |
