@@ -42,12 +42,15 @@ jobs:
           tar --zstd -xf clang.tar.zst -C "$HOME/neutron"
           echo "$HOME/neutron/bin" >> "$GITHUB_PATH"
 
-      - name: Stub or clone KernelSU
+      - name: Clone or stub KernelSU Next
         run: |
-          rm -rf KernelSU
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
-            git clone --depth=1 https://github.com/Jprimero15/KernelSU KernelSU
-            test -f KernelSU/kernel/Kconfig || { echo "::error::KernelSU/kernel/Kconfig missing"; exit 1; }
+            rm -rf KernelSU-Next
+            git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
+            test -f KernelSU-Next/kernel/Kconfig || { echo "::error::KernelSU-Next/kernel/Kconfig missing"; exit 1; }
+            # tree wiring: drivers/kernelsu -> ../KernelSU/kernel ; retarget to Next
+            rm -f drivers/kernelsu
+            ln -s ../KernelSU-Next/kernel drivers/kernelsu
           else
             # drivers/kernelsu -> ../KernelSU/kernel (tree root); stub it for plain builds
             mkdir -p KernelSU/kernel
@@ -61,11 +64,12 @@ jobs:
           MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
           $MAKE KBUILD_DEFCONFIG=vendor/msm8937_defconfig defconfig
           CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config"
-          if [ "${{ inputs.include_ksu }}" = "true" ]; then
-            CONFIGS="$CONFIGS arch/arm64/configs/vendor/feature/ksu_static_hooks.config"
-          fi
           printf 'CONFIG_KSU=%s\n' "${{ inputs.include_ksu && 'y' || 'n' }}" >> /tmp/extra.config
           printf 'CONFIG_CORESIGHT=n\n' >> /tmp/extra.config
+          if [ "${{ inputs.include_ksu }}" = "true" ]; then
+            # KSU Next depends on KPROBES && EXT4_FS
+            printf 'CONFIG_KPROBES=y\nCONFIG_HAVE_KPROBES=y\n' >> /tmp/extra.config
+          fi
           scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS /tmp/extra.config
           $MAKE olddefconfig
           grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG|^CONFIG_CORESIGHT" out/.config || true
