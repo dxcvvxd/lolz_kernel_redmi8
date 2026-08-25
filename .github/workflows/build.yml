@@ -115,12 +115,15 @@ jobs:
           cp Image.gz-dtb /tmp/AnyKernel3/Image.gz-dtb
           sed -i \
             -e 's/^kernel.string=.*/kernel.string=sdm439 4.19 KSU:${{ inputs.include_ksu }} for pine/' \
-            -e 's/^is_slot_device=.*/is_slot_device=0;/' \
-            -e 's|^# block=/dev/block/mmcblk0p21;|block=/dev/block/bootdevice/by-name/boot;|' \
+            -e 's/^device.name1=.*/device.name1=pine/' \
+            -e 's/^device.name2=.*/device.name2=olive/' \
+            -e 's/^device.name3=.*/device.name3=olivelite/' \
+            -e 's/^device.name4=.*/device.name4=olivewood/' \
+            -e 's/^device.name5=.*/device.name5=olives/' \
+            -e 's|^BLOCK=.*|BLOCK=/dev/block/bootdevice/by-name/boot;|' \
+            -e 's/^IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=0;/' \
             /tmp/AnyKernel3/anykernel.sh
-          grep -q '^block=' /tmp/AnyKernel3/anykernel.sh || \
-            sed -i '/^## AnyKernel setup/,/^##/s/^is_slot_device=/block=\/dev\/block\/bootdevice\/by-name\/boot;\nis_slot_device=/' /tmp/AnyKernel3/anykernel.sh
-          tail -5 /tmp/AnyKernel3/anykernel.sh
+          grep -E '^device.name|^BLOCK=|^IS_SLOT' /tmp/AnyKernel3/anykernel.sh
           cd /tmp/AnyKernel3
           zip -r9 "$GITHUB_WORKSPACE/sdm439-kernel-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ inputs.source_ref }}-$(date +%Y%m%d).zip" .
 
