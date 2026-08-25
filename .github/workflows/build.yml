@@ -38,13 +38,18 @@ jobs:
           tar --zstd -xf clang.tar.zst -C "$HOME/neutron"
           echo "$HOME/neutron/bin" >> "$GITHUB_PATH"
 
-      - name: Clone KernelSU
-        if: ${{ inputs.include_ksu }}
+      - name: Stub or clone KernelSU
         run: |
-          rm -rf drivers/KernelSU
-          git clone --depth=1 https://github.com/Jprimero15/KernelSU drivers/KernelSU
-          test -d drivers/KernelSU/kernel || { echo "::error::drivers/KernelSU/kernel missing - fork layout mismatch"; exit 1; }
-          ls drivers/KernelSU/kernel | head
+          rm -rf KernelSU
+          if [ "${{ inputs.include_ksu }}" = "true" ]; then
+            git clone --depth=1 https://github.com/Jprimero15/KernelSU KernelSU
+            test -f KernelSU/kernel/Kconfig || { echo "::error::KernelSU/kernel/Kconfig missing"; exit 1; }
+          else
+            # drivers/kernelsu -> ../KernelSU/kernel (tree root); stub it for plain builds
+            mkdir -p KernelSU/kernel
+            printf 'config KSU\n\tbool "KernelSU"\n\tdefault n\n' > KernelSU/kernel/Kconfig
+            printf 'obj-$(CONFIG_KSU) += \n' > KernelSU/kernel/Makefile
+          fi
 
       - name: Configure kernel (pine)
         run: |
