@@ -93,12 +93,10 @@ jobs:
           gzip -9 -c out/arch/arm64/boot/Image > Image.gz-dtb
           cat sdm439-pine.dtb >> Image.gz-dtb
           ls -la Image.gz-dtb
-          git clone --depth=1 https://android.googlesource.com/platform/system/libufdt /tmp/libufdt
-          make -j$(nproc) -C /tmp/libufdt/utils/src
-          MKDTIMG=/tmp/libufdt/utils/src/mkdtimg
+          MKDTIMG=scripts/mkdtboimg.py
           test -f sdm439-qrd-overlay-pine.dtbo
-          "$MKDTIMG" create dtbo.img --dtb-overlays sdm439-qrd-overlay-pine.dtbo --page_size 4096
-          "$MKDTIMG" dump dtbo.img
+          python3 "$MKDTIMG" create dtbo.img --page_size=4096 sdm439-qrd-overlay-pine.dtbo
+          python3 "$MKDTIMG" dump dtbo.img
 
       - name: Pack AnyKernel3 zip
         run: |
