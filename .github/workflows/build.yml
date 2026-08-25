@@ -66,6 +66,8 @@ jobs:
           CONFIGS="arch/arm64/configs/vendor/xiaomi-sdm439.config"
           printf 'CONFIG_KSU=%s\n' "${{ inputs.include_ksu && 'y' || 'n' }}" >> /tmp/extra.config
           printf 'CONFIG_CORESIGHT=n\n' >> /tmp/extra.config
+          # no RTB driver source in tree; header stubs make it a no-op
+          printf 'CONFIG_QCOM_RTB=n\n' >> /tmp/extra.config
           if [ "${{ inputs.include_ksu }}" = "true" ]; then
             # KSU Next depends on KPROBES && EXT4_FS
             printf 'CONFIG_KPROBES=y\nCONFIG_HAVE_KPROBES=y\n' >> /tmp/extra.config
