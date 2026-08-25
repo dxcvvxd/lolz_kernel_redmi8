@@ -71,7 +71,7 @@ jobs:
           export PATH="$HOME/neutron/bin:$PATH"
           MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc)"
           $MAKE Image
-          $MAKE arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb
+          $MAKE sdm439-pine.dtb
           ls -la out/arch/arm64/boot/Image out/arch/arm64/boot/dts/xiaomi-sdm439/*.dtb
 
       - name: Compile pine dtbo (no kbuild rule in 4.19)
