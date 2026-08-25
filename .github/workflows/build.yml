@@ -7,17 +7,21 @@ on:
         description: "Include KernelSU (static hooks)"
         type: boolean
         default: true
+      source_ref:
+        description: "Kernel branch (ksu = plain+KSU, lolz-v2 = LOLZ features)"
+        type: string
+        default: "ksu"
 
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout kernel source (Jprimero15 sdm439 4.19, ksu branch)
+      - name: Checkout kernel source (Jprimero15 sdm439 4.19)
         uses: actions/checkout@v4
         with:
           repository: Jprimero15/android_kernel_xiaomi_sdm439-4.19
-          ref: ksu
+          ref: ${{ inputs.source_ref }}
           fetch-depth: 1
 
       - name: Install dependencies
@@ -112,12 +116,12 @@ jobs:
             sed -i '/^## AnyKernel setup/,/^##/s/^is_slot_device=/block=\/dev\/block\/bootdevice\/by-name\/boot;\nis_slot_device=/' /tmp/AnyKernel3/anykernel.sh
           tail -5 /tmp/AnyKernel3/anykernel.sh
           cd /tmp/AnyKernel3
-          zip -r9 "$GITHUB_WORKSPACE/sdm439-kernel-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-$(date +%Y%m%d).zip" .
+          zip -r9 "$GITHUB_WORKSPACE/sdm439-kernel-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ inputs.source_ref }}-$(date +%Y%m%d).zip" .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sdm439-pine-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ github.run_id }}
+          name: sdm439-pine-${{ inputs.source_ref }}-${{ inputs.include_ksu && 'ksu' || 'plain' }}-${{ github.run_id }}
           path: |
             sdm439-kernel-*.zip
             dtbo.img
