@@ -66,14 +66,25 @@ jobs:
           $MAKE olddefconfig
           grep -E "^CONFIG_KSU|^CONFIG_SCHED_WALT|^CONFIG_MACH_XIAOMI_PINE|^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE|^CONFIG_CC_IS_CLANG|^CONFIG_CORESIGHT" out/.config || true
 
-      - name: Build Image + dtbs
+      - name: Build Image + pine dtb
         run: |
           export PATH="$HOME/neutron/bin:$PATH"
           MAKE="make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- -j$(nproc)"
           $MAKE Image
-          $MAKE arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb \
-                arch/arm64/boot/dts/xiaomi-sdm439/sdm439-qrd-overlay-pine.dtbo
+          $MAKE arch/arm64/boot/dts/xiaomi-sdm439/sdm439-pine.dtb
           ls -la out/arch/arm64/boot/Image out/arch/arm64/boot/dts/xiaomi-sdm439/*.dtb
+
+      - name: Compile pine dtbo (no kbuild rule in 4.19)
+        run: |
+          DTC=out/scripts/dtc/dtc
+          test -x "$DTC"
+          SRC=arch/arm64/boot/dts/xiaomi-sdm439/sdm439-qrd-overlay-pine.dts
+          cpp -nostdinc -undef -D__DTS__ \
+            -I arch/arm64/boot/dts/xiaomi-sdm439 \
+            -I arch/arm64/boot/dts/xiaomi-sdm439/base \
+            -I include -x assembler-with-cpp "$SRC" > /tmp/pine-overlay.dts.tmp
+          "$DTC" -@ -O dtb -o sdm439-qrd-overlay-pine.dtbo /tmp/pine-overlay.dts.tmp
+          file sdm439-qrd-overlay-pine.dtbo
 
       - name: Assemble Image.gz-dtb + dtbo.img
         run: |
@@ -83,9 +94,8 @@ jobs:
           git clone --depth=1 https://android.googlesource.com/platform/system/libufdt /tmp/libufdt
           make -j$(nproc) -C /tmp/libufdt/utils/src
           MKDTIMG=/tmp/libufdt/utils/src/mkdtimg
-          OVERLAY=$(find out/arch/arm64/boot/dts/xiaomi-sdm439 -name "sdm439-qrd-overlay-pine.dtbo")
-          test -n "$OVERLAY"
-          "$MKDTIMG" create dtbo.img --dtb-overlays "$OVERLAY" --page_size 4096
+          test -f sdm439-qrd-overlay-pine.dtbo
+          "$MKDTIMG" create dtbo.img --dtb-overlays sdm439-qrd-overlay-pine.dtbo --page_size 4096
           "$MKDTIMG" dump dtbo.img
 
       - name: Pack AnyKernel3 zip
